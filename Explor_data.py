@@ -1,8 +1,12 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import scipy.stats as stats
+from scipy.stats import norm
+import numpy as np
 
 data = pd.read_csv('./Data/train.csv')
+# data['SalePrice'] = np.log(data['SalePrice'])
 
 # sns.distplot(data['KitchenAbvGr'])  # 绘制单一数据图
 # plt.show()
@@ -28,7 +32,27 @@ data = pd.read_csv('./Data/train.csv')
 # plt.show()
 
 # 绘制所需要的相关图
-sns.set()
-cols = ['SalePrice', 'OverallQual', 'GrLivArea', 'GarageCars', 'TotalBsmtSF', 'FullBath', 'YearBuilt']
-sns.pairplot(data[cols], height=2.5)
+# sns.set()
+# cols = ['SalePrice', 'OverallQual', 'GrLivArea', 'GarageCars', 'TotalBsmtSF', 'FullBath', 'YearBuilt']
+# sns.pairplot(data[cols], height=2.5)
+# plt.show()
+
+# 缺失值
+# total = data.isnull().sum().sort_values(ascending=False)
+# # percent = (data.isnull().sum()/data.isnull().count() * 100).sort_values(ascending=False)
+# # missing_data = pd.concat([total, percent], axis=1, keys=['Total', 'Percent (%)'])
+# # print(missing_data.head(20))
+
+# 绘制正态分布曲线
+# fig, ax = plt.subplots(1, 1)
+# sns.distplot(data['GrLivArea'], fit=norm)
+# ax.set_title('GrLivArea(Original)')
+# plt.show()
+
+# 绘制正态概率图
+data['TotalBsmtSF'] = data['TotalBsmtSF'].map(lambda s: 0 if s == 0 else np.log(s))
+fig, ax = plt.subplots(1, 1)
+stats.probplot(data.loc[data['TotalBsmtSF'] != 0, 'TotalBsmtSF'], plot=plt)
+ax.set_title('TotalBsmtSF(log)')
 plt.show()
+
