@@ -7,10 +7,10 @@ import numpy as np
 
 train = pd.read_csv('./Data/train.csv')
 test = pd.read_csv('./Data/test.csv')
-train['SalePrice'] = np.log(train['SalePrice'])
 
 data = train.append(test, ignore_index=True, sort=True)
-print(data['SalePrice'])
+print(data['TotalBsmtSF'].describe())
+print(data.loc[data['Id'] == 2121])
 # data['SalePrice'] = np.log(data['SalePrice'])
 
 # sns.distplot(data['KitchenAbvGr'])  # 绘制单一数据图

@@ -23,6 +23,10 @@ percent = (data.isnull().sum() / data.isnull().count()).sort_values(ascending=Fa
 missingData = pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
 data = data.drop((missingData[missingData['Total'] > 1]).index, 1)
 
+# 补充test集中缺失值
+data['TotalBsmtSF'] = data['TotalBsmtSF'].fillna(data['GrLivArea'])
+data['GarageCars'] = data['GarageCars'].fillna(0)
+
 # GrLivArea取对数
 data['GrLivArea'] = np.log(data['GrLivArea'])
 # 处理TotalBsmtSF
