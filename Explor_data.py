@@ -5,7 +5,12 @@ import scipy.stats as stats
 from scipy.stats import norm
 import numpy as np
 
-data = pd.read_csv('./Data/train.csv')
+train = pd.read_csv('./Data/train.csv')
+test = pd.read_csv('./Data/test.csv')
+train['SalePrice'] = np.log(train['SalePrice'])
+
+data = train.append(test, ignore_index=True, sort=True)
+print(data['SalePrice'])
 # data['SalePrice'] = np.log(data['SalePrice'])
 
 # sns.distplot(data['KitchenAbvGr'])  # 绘制单一数据图
@@ -50,9 +55,9 @@ data = pd.read_csv('./Data/train.csv')
 # plt.show()
 
 # 绘制正态概率图
-data['TotalBsmtSF'] = data['TotalBsmtSF'].map(lambda s: 0 if s == 0 else np.log(s))
-fig, ax = plt.subplots(1, 1)
-stats.probplot(data.loc[data['TotalBsmtSF'] != 0, 'TotalBsmtSF'], plot=plt)
-ax.set_title('TotalBsmtSF(log)')
-plt.show()
+# data['TotalBsmtSF'] = data['TotalBsmtSF'].map(lambda s: 0 if s == 0 else np.log(s))
+# fig, ax = plt.subplots(1, 1)
+# stats.probplot(data.loc[data['TotalBsmtSF'] != 0, 'TotalBsmtSF'], plot=plt)
+# ax.set_title('TotalBsmtSF(log)')
+# plt.show()
 
