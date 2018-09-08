@@ -25,7 +25,8 @@ def plot_history(history):
 
 train_x = pd.read_csv('./Data/train_x.csv')
 train_y = pd.read_csv('./Data/train_y.csv')
-test_x = pd.read_csv('./Data/test_x.csv')
+
+model_name = '2 Adam model'
 
 model = keras.Sequential([
     keras.layers.Dense(64, activation=keras.activations.relu, input_shape=(6,)),
@@ -33,17 +34,13 @@ model = keras.Sequential([
     keras.layers.Dense(1)
 ])
 
-optimizer = keras.optimizers.RMSprop()
+optimizer = keras.optimizers.Adam()
 model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
 
-history = model.fit(train_x, train_y, epochs=500, validation_split=0.2, verbose=0, callbacks=[PrintDot()])
-model.save('./Model_Analyse/1st original model.h5')
+early_stop = keras.callbacks.EarlyStopping(monitor='loss', patience=50, min_delta=0.001)
+
+history = model.fit(train_x, train_y, epochs=50, validation_split=0.2, verbose=0, callbacks=[PrintDot()])
+model.save('./Model_Analyse/{}.h5'.format(model_name))
 
 plot_history(history)
 plt.show()
-
-test_y = model.predict(test_x)
-test_y = np.exp(test_y)
-test_y = pd.DataFrame(test_y, columns=['SalePrice'])
-submission = pd.concat([pd.read_csv('./Data/test.csv')['Id'], test_y], axis=1)
-submission.to_csv('./Predictions/1st original model.csv', index=False)
