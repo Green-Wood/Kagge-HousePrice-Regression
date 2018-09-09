@@ -6,7 +6,7 @@ import seaborn as sns
 
 test_x = pd.read_csv('./Data/test_x.csv')
 
-model_name = '4 Adam'
+model_name = '5 RMSprop new data'
 
 
 model = keras.models.load_model('./Model_Analyse/{}.h5'.format(model_name))
