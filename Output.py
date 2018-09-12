@@ -6,7 +6,7 @@ import seaborn as sns
 
 test_x = pd.read_csv('./Data/test_x.csv')
 
-model_name = '6 Adam epochs=600'
+model_name = '8 Adamax'
 
 
 model = keras.models.load_model('./Model_Analyse/{}.h5'.format(model_name))
