@@ -19,7 +19,7 @@ data = train.append(test, ignore_index=True, sort=False)
 
 # SalePrice取对数
 label = data.loc[:ntrain-1]['SalePrice']
-label = np.log(label)
+label = np.log1p(label)
 
 # 在训练集中删除SalePrice, ID
 data = data.drop(['SalePrice', 'Id'], axis=1)
