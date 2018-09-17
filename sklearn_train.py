@@ -17,7 +17,7 @@ train_x = pd.read_csv('./Data/train_x.csv')
 train_y = pd.read_csv('./Data/train_y.csv')
 test_x = pd.read_csv('./Data/test_x.csv')
 
-model_name = 'sklearn average model'
+model_name = 'sklearn all model'
 
 n_folds = 5
 
@@ -26,6 +26,10 @@ def rmsle_cv(model):
     kf = KFold(n_folds, shuffle=True, random_state=7).get_n_splits(train_x.values)
     rmse = np.sqrt(-cross_val_score(model, train_x.values, train_y.values.ravel(), scoring="neg_mean_squared_error", cv=kf))
     return rmse
+
+
+def rmsle(y, y_pred):
+    return np.sqrt(mean_squared_error(y, y_pred))
 
 
 lasso = make_pipeline(RobustScaler(), Lasso(alpha=0.0005, random_state=7))
@@ -80,14 +84,64 @@ class AveragingModels(BaseEstimator, RegressorMixin, TransformerMixin):
         return np.mean(predictions, axis=1)
 
 
-averaged_models = AveragingModels(models=(ENet, GBoost, KRR, lasso))
+class StackingAverageModels(BaseEstimator, RegressorMixin, TransformerMixin):
+    def __init__(self, base_models, meta_model, n_folds=5):
+        self.base_models = base_models
+        self.meta_model = meta_model
+        self.n_folds = n_folds
+
+    def fit(self, X, y):
+        self.base_models_ = [list() for x in self.base_models]
+        self.meta_model_ = clone(self.meta_model)
+        kfold = KFold(n_splits=n_folds, shuffle=True, random_state=7)
+
+        out_of_fold_prediction = np.zeros((X.shape[0], len(self.base_models)))
+        for i, model in enumerate(self.base_models):
+            for train_index, holdout_index in kfold.split(X, y):
+                instance = clone(model)
+                self.base_models_[i].append(instance)
+                instance.fit(X[train_index], y[train_index])
+                y_pred = instance.predict(X[holdout_index])
+                out_of_fold_prediction[holdout_index, i] = y_pred
+
+        self.meta_model.fit(out_of_fold_prediction, y)
+        return self
+
+    def predict(self, X):
+        meta_features = np.column_stack([
+            np.column_stack([model.predict(X) for model in base_models]).mean(axis=1)
+            for base_models in self.base_models_
+        ])
+        return self.meta_model.predict(meta_features)
 
 
-averaged_models.fit(train_x.values, train_y.values.ravel())
-test_y = np.expm1(averaged_models.predict(test_x.values))
-test_y = pd.DataFrame(test_y, columns=['SalePrice'])
-submission = pd.concat([pd.read_csv('./Data/test.csv')['Id'], test_y], axis=1)
-submission.to_csv('./Predictions/{}.csv'.format(model_name), index=False)
+stacked_models = StackingAverageModels(base_models=(KRR, ENet, GBoost), meta_model=lasso)
+stacked_models.fit(train_x.values, train_y.values.ravel())
+staked_train_pred = stacked_models.predict(train_x.values)
+stacked_pred = np.expm1(stacked_models.predict(test_x.values))
+print('Stacked: {}'.format(rmsle(train_y, staked_train_pred)))
 
-sns.distplot(submission['SalePrice'])
-plt.show()
+model_xgb.fit(train_x.values, train_y.values.ravel())
+xgb_train_pred = model_xgb.predict(train_x.values)
+xgb_pred = np.expm1(model_xgb.predict(test_x.values))
+print('xgb: {}'.format(rmsle(train_y, xgb_train_pred)))
+
+model_lgb.fit(train_x.values, train_y.values.ravel())
+lgb_train_pred = model_lgb.predict(train_x.values)
+lgb_pred = np.expm1(model_lgb.predict(test_x.values))
+print('lgb: {}'.format(rmsle(train_y, lgb_train_pred)))
+
+print('All models:{}'.format(rmsle(train_y, staked_train_pred*0.7+xgb_train_pred*0.15+lgb_train_pred*0.15)))
+
+
+# score = rmsle_cv(averaged_models)
+# print('Stacking score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
+
+
+# test_y = stacked_pred * 0.7 + xgb_pred * 0.15 + lgb_pred * 0.15
+# test_y = pd.DataFrame(test_y, columns=['SalePrice'])
+# submission = pd.concat([pd.read_csv('./Data/test.csv')['Id'], test_y], axis=1)
+# submission.to_csv('./Predictions/{}.csv'.format(model_name), index=False)
+#
+# sns.distplot(submission['SalePrice'])
+# plt.show()
