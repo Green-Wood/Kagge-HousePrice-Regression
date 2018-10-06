@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import ElasticNet, Lasso,  BayesianRidge, LassoLarsIC
-from sklearn.ensemble import RandomForestRegressor,  GradientBoostingRegressor
+from sklearn.ensemble import AdaBoostRegressor,  GradientBoostingRegressor
+from sklearn.svm import SVR
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import RobustScaler
@@ -35,10 +36,12 @@ def rmsle(y, y_pred):
 lasso = make_pipeline(RobustScaler(), Lasso(alpha=0.0005, random_state=7))
 ENet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=0.9, random_state=7))
 KRR = KernelRidge(alpha=0.6, kernel='polynomial', degree=2, coef0=2.5)
+svr = SVR(kernel='poly', C=0.05)
 GBoost = GradientBoostingRegressor(n_estimators=3000, learning_rate=0.05,
                                    max_depth=4, max_features='sqrt',
                                    min_samples_leaf=15, min_samples_split=10,
                                    loss='huber', random_state=7)
+model_Ada = AdaBoostRegressor(base_estimator=BayesianRidge(), n_estimators=1000)
 model_xgb = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468,
                              learning_rate=0.05, max_depth=3,
                              n_estimators=2200,
@@ -52,6 +55,8 @@ model_lgb = lgb.LGBMRegressor(objective='regression', num_leaves=5,
                               feature_fraction_seed=9, bagging_seed=9,
                               min_data_in_leaf=6, min_sum_hessian_in_leaf=11)
 
+# score = rmsle_cv(svr)
+# print('SVR: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
 # score = rmsle_cv(lasso)
 # print('Lasso score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
 # score = rmsle_cv(ENet)
@@ -66,12 +71,14 @@ model_lgb = lgb.LGBMRegressor(objective='regression', num_leaves=5,
 # print('LGB score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
 
 
-class AveragingModels(BaseEstimator, RegressorMixin, TransformerMixin):
-    def __init__(self, models):
+class PolynomialModels(BaseEstimator, RegressorMixin, TransformerMixin):
+    def __init__(self, models, proportions):
         self.models = models
+        self.proportions = proportions
 
     def fit(self, train_x, train_y):
         self.models_ = [clone(x) for x in self.models]
+        self.proportions_ = [x for x in self.proportions]
 
         for model in self.models_:
             model.fit(train_x, train_y)
@@ -79,9 +86,9 @@ class AveragingModels(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def predict(self, X):
         predictions = np.column_stack([
-            model.predict(X) for model in self.models_
+            model.predict(X)*self.proportions_[i] for i, model in enumerate(self.models_)
         ])
-        return np.mean(predictions, axis=1)
+        return np.sum(predictions, axis=1)
 
 
 class StackingAverageModels(BaseEstimator, RegressorMixin, TransformerMixin):
@@ -116,22 +123,46 @@ class StackingAverageModels(BaseEstimator, RegressorMixin, TransformerMixin):
 
 
 stacked_models = StackingAverageModels(base_models=(KRR, ENet, GBoost), meta_model=lasso)
-stacked_models.fit(train_x.values, train_y.values.ravel())
-staked_train_pred = stacked_models.predict(train_x.values)
-stacked_pred = np.expm1(stacked_models.predict(test_x.values))
-print('Stacked: {}'.format(rmsle(train_y, staked_train_pred)))
+poly_model = PolynomialModels(models=(stacked_models, model_lgb, model_xgb), proportions=[0.7, 0.15, 0.15])
+# poly_model.fit(train_x.values, train_y.values.ravel())
+#
+#
+# poly_model.predict(test_x.values)
 
-model_xgb.fit(train_x.values, train_y.values.ravel())
-xgb_train_pred = model_xgb.predict(train_x.values)
-xgb_pred = np.expm1(model_xgb.predict(test_x.values))
-print('xgb: {}'.format(rmsle(train_y, xgb_train_pred)))
 
-model_lgb.fit(train_x.values, train_y.values.ravel())
-lgb_train_pred = model_lgb.predict(train_x.values)
-lgb_pred = np.expm1(model_lgb.predict(test_x.values))
-print('lgb: {}'.format(rmsle(train_y, lgb_train_pred)))
+# stacked_models.fit(train_x.values, train_y.values.ravel())
+# staked_train_pred = stacked_models.predict(train_x.values)
+# stacked_pred = np.expm1(stacked_models.predict(test_x.values))
+# print('Stacked: {}'.format(rmsle(train_y, staked_train_pred)))
 
-print('All models:{}'.format(rmsle(train_y, staked_train_pred*0.7+xgb_train_pred*0.15+lgb_train_pred*0.15)))
+score = rmsle_cv(poly_model)
+print('stacked score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
+
+# model_xgb.fit(train_x.values, train_y.values.ravel())
+# xgb_train_pred = model_xgb.predict(train_x.values)
+# xgb_pred = np.expm1(model_xgb.predict(test_x.values))
+# print('xgb: {}'.format(rmsle(train_y, xgb_train_pred)))
+
+# score = rmsle_cv(model_xgb)
+# print('xgb score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
+
+# model_lgb.fit(train_x.values, train_y.values.ravel())
+# lgb_train_pred = model_lgb.predict(train_x.values)
+# lgb_pred = np.expm1(model_lgb.predict(test_x.values))
+# print('lgb: {}'.format(rmsle(train_y, lgb_train_pred)))
+
+# score = rmsle_cv(model_lgb)
+# print('lgb score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
+
+# average_all_model = StackingAverageModels(base_models=(model_lgb, model_xgb, stacked_models)
+#                                           , meta_model=model_Ada)
+# score = rmsle_cv(average_all_model)
+# print('Average score: {:.4f} ({:.4f})\n'.format(score.mean(), score.std()))
+# stacked RanF score: 0.1139 (0.0057)
+# average score: 0.1103 (0.0066)
+# stack Ada score: 0.1105 (0.0067)
+#
+# print('All models:{}'.format(rmsle(train_y, staked_train_pred*0.7+xgb_train_pred*0.15+lgb_train_pred*0.15)))
 
 
 # score = rmsle_cv(averaged_models)

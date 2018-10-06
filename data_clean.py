@@ -3,13 +3,14 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from scipy.stats import skew
 from scipy.special import boxcox1p
+from sklearn.ensemble import RandomForestRegressor
 
 
 train = pd.read_csv('./Data/train.csv')
 test = pd.read_csv('./Data/test.csv')
 
 # 删除两个在GrLivArea中奇怪的离散值
-train = train.drop(train[(train['GrLivArea']>4000) & (train['SalePrice']<300000)].index)
+train = train.drop(train[(train['GrLivArea'] > 4000) & (train['SalePrice'] < 300000)].index)
 
 ntrain = train.shape[0]
 ntest = test.shape[0]
@@ -83,8 +84,13 @@ data['TotalSF'] = data['TotalBsmtSF'] + data['1stFlrSF'] + data['2ndFlrSF']
 
 data = pd.get_dummies(data)
 
-print(data.shape)
+RFG_model = RandomForestRegressor()
 
-data[:ntrain].to_csv('./Data/train_x.csv', index=False)
-data[ntrain:].to_csv('./Data/test_x.csv', index=False)
-label.to_csv('./Data/train_y.csv', index=False, header='SalePrice')
+RFG_model.fit(data[:ntrain].values, label)
+
+#
+# print(data.shape)
+#
+# data[:ntrain].to_csv('./Data/train_x.csv', index=False)
+# data[ntrain:].to_csv('./Data/test_x.csv', index=False)
+# label.to_csv('./Data/train_y.csv', index=False, header='SalePrice')
